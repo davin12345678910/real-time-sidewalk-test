@@ -24,3 +24,8 @@ run `python main.py`
 
 ### Note: if you want to just test llava.py with our prompts run:
 - `python llava_test.py`
+
+### How to get a local version of LLaVA
+- use the windows version of the installation steps in this repo: https://github.com/haotian-liu/LLaVA 
+- modified_cli.py contains code that might be able to run a local version of llava that can be made into a server
+  - has not been tested yet since i do not have a desktop i can run a local version of llava on 
