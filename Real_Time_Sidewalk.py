@@ -264,7 +264,7 @@ def ocr_stream():
         if pressed_key == ord("c"):
             print("ELAPSED TIME: ", (end_time - start_time))
 
-        # Here we will be outputing the text to the user
+        # Here we will be outputing the text to the user in the UI
         font = cv2.FONT_HERSHEY_SIMPLEX
         fontScale = 1
         color = (0, 0, 255)  # Green color in BGR
