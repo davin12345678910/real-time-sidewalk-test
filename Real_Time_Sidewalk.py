@@ -5,7 +5,7 @@ import os
 import re
 from PIL import Image
 
-# GLOBAL CONSTANTS
+############ GLOBAL CONSTANTS
 
 # this is the object detection model that we will be using
 RETDETR_model = None
@@ -18,6 +18,8 @@ task_pool = None
 
 # this is the text that we will be outputting to the user
 text = []
+
+############# MAIN CODE
 
 """
 Definition: this is where we will be initalizing the needed variables in our code 
@@ -48,7 +50,7 @@ Definition: this method will get us text and caption information from llava
 
 Parameters:
 path - this is the path of the image that we want to analyze
-queue - this is the queue where we will be storing all of the information that we want 
+queue - this is the queue where we will be storing all of the caption/text information that we want 
 task - this is the type of task that we want to do, whether it be caption or text 
 
 Return: None
@@ -59,7 +61,8 @@ def get_llava(path, queue, task):
     # this is the replicate token that we will need to use
     os.environ["REPLICATE_API_TOKEN"] = "r8_HfRAhxwo6UJWnpdEPkLhpwC9HIRxGzn0fHb38"
 
-    # Give me a caption for the image. If it includes text, please include.
+    # This is for the text based situation where we only want to get text information from the image
+    # in this case it will be text based information
     if task == "text":
 
         # this is the api call we will be using for text
@@ -77,6 +80,8 @@ def get_llava(path, queue, task):
             text += item
 
         queue.put(["text", text])
+
+    # this is the case when we just want to get a text for the overall image
     else:
 
         # this is the api call that we will be using for captions
@@ -96,12 +101,10 @@ def get_llava(path, queue, task):
         queue.put(["caption", text])
 
 
-#################### main program code #################################################################################################
-
-
 """
 Definition: this is where we will be running the main portion of our code 
 that will allow users to get information from nearby pedestrian singals
+such as whether we can cross the street or not and how much time is remaining 
 
 Parameters: None
 
@@ -110,16 +113,16 @@ Returns: None
 
 
 def ocr_stream():
+    # we need this import for benchmarking
     import time
     captures = 0  # Number of still image captures during view session
 
+    # this is what we will be using if you want to get webcam footage
+    # cap = cv2.VideoCapture(0)
     cap = cv2.VideoCapture(
         'C:\\Users\\davin\\PycharmProjects\\real-time-sidewalk\\bandicam 2023-12-15 16-13-05-414.mp4')  # Starts reading the video stream in dedicated thread
 
-    # this is what we will be using if you want to get webcam footage
-    # cap = cv2.VideoCapture(0)
-
-    # Main display loop
+    # MAIN NOTE: for the user of the system
     print("\nPUSH c TO GET CROSSWALK INFORMATION (press s TO CLEAR MESSAGE). PRESS Q TO QUIT THE SYSTEM\n")
 
     # here we will be starting up the system
@@ -136,10 +139,10 @@ def ocr_stream():
         # in which we will be working with
         global current_frame
         current_frame = frame
-
         frame = current_frame
 
-        # Resize the cropped image back to original size
+        # Here we will be storing the current frame
+        # in which we will want to process
         cv2.imwrite("C:\\Users\\davin\\PycharmProjects\\real-time-sidewalk\\current.png", current_frame)
 
         # if the user presses s, we will erase the text from the screen
@@ -148,11 +151,16 @@ def ocr_stream():
             global text
             text = []
 
+        # we will be using the following to get the total time a query ran
         start_time = 0
+
         # this is where we will be capturing data to output to the user
         if pressed_key == ord('c'):
+
+            # this is the start of our system call
             start_time = time.time()
-            # last_execution_time = current_time
+
+            # this is to get the model in which we will use to get object detection information
             global RETDETR_model
             results = RETDETR_model(['C:\\Users\\davin\\PycharmProjects\\real-time-sidewalk\\current.png'])
 
@@ -167,17 +175,21 @@ def ocr_stream():
                 boxes = key.boxes.xyxy.tolist()
                 classes = key.boxes.cls.tolist()
 
+            # This is to save the current image so that a user can look at what it was
             current_image = Image.open(
                 'C:\\Users\\davin\\PycharmProjects\\real-time-sidewalk\\current.png')
             cropped_image_path = "C:\\Users\\davin\\PycharmProjects\\real-time-sidewalk\\cropped_imgs\\" + "cropped_im" + str(
                 1) + ".png"
             current_image.save(cropped_image_path)
 
+            """
+            Here a user will be able to check to see if something is a traffic signal and if it is
+            the system will crop that part of the image and it will crop the traffic
+            singals in the given image 
+            """
             index = 2
-
             global task_queue
             global task_pool
-
             task = []
 
             # here we will be looking through all of the detected objects and
@@ -185,6 +197,7 @@ def ocr_stream():
             for i in range(len(boxes)):
 
                 # 9 is the class for a traffic signal
+                # and we will be checking if an image is one or not
                 if classes[i] == 9:
 
                     box = boxes[i]
@@ -199,17 +212,14 @@ def ocr_stream():
                         index) + ".png"
                     cropped_image.save(cropped_image_path)
 
-                    # this is the threshold that we will use to determine if something is a pedestrian
-                    # traffic signal or not
-                    threshold = 0.85
-                    width = box[2] - box[0]
-                    height = box[3] - box[1]
-                    aspect_ratio = width / height
-
                     # Check if it's a square, because from the given traffic signals you can detect
                     # traffic signals that can be seen are in a square shape.
                     # Note: if there are traffic signals that are edge cases please let me know, but
                     # so far it is working quite well
+                    threshold = 0.85
+                    width = box[2] - box[0]
+                    height = box[3] - box[1]
+                    aspect_ratio = width / height
                     if aspect_ratio >= threshold:
                         task.append((cropped_image_path, task_queue, "text"))
                         task.append((cropped_image_path, task_queue, "caption"))
@@ -220,8 +230,8 @@ def ocr_stream():
             # here we will be running all of the task through the use of the multiprocessing method
             task_pool.starmap(get_llava, task)
 
-            # Here we will be getting all of the text that we have
-            # and we will customize it for the user
+            # Here we will be getting all of the caption information from
+            # the queue and we will later output this information
             time = ""
             caption = ""
 
@@ -250,6 +260,7 @@ def ocr_stream():
         import time
         end_time = time.time()
 
+        # here we will be printing the total elapsed time of the pedestrian information
         if pressed_key == ord("c"):
             print("ELAPSED TIME: ", (end_time - start_time))
 
